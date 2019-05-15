@@ -131,7 +131,8 @@
 						data = JSON.parse(data);
 					} catch (e) {
 					}
-					output.push({ [line]: data});
+					output.push({ [i + ': ' + line]: data});
+					output = output.sort(function(a, b) {return parseInt(Object.keys(a)[0]) - parseInt(Object.keys(b)[0]);});
 					$('#grok').html(JSON.stringify(output, null, 2));
 					// Remove the loading indicator after a short time
 					setTimeout(function(){$('#grokSpinner').remove();}, 500);

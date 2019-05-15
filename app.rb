@@ -58,7 +58,6 @@ class Application < Sinatra::Base
     singles = (params[:singles] == "true")
     keep_empty_captures = (params[:keep_empty_captures] == "true")
 
-    puts "Pattern: "
     if !custom_patterns.empty?
       add_custom_patterns_from_string(custom_patterns)
     end
@@ -70,17 +69,16 @@ class Application < Sinatra::Base
     end
 
     matches = grok.match(params[:input])
-    puts "Matches: #{matches.captures}" if !!matches
     return "No Matches" if !matches
+
+    keys = grok.expanded_pattern.scan(/\(\?<\w+:(\w+)(?::\w+)?>/)
+    keys = keys.map{ |x| x[0] }
 
     fields = {}
     matches.captures.each do |key, value|
-      puts "Key: #{key}"
-      puts "Value: #{value}"
       type_coerce = nil
       is_named = false
-      if key.include?(":")
-         name, key, type_coerce = key.split(":")
+      if keys.include?(key)
          is_named = true
       end
 

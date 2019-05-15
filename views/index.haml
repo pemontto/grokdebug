@@ -186,6 +186,10 @@
 		})
 	})
 
+	// show/hide regex container
+	$("#show_regex").click(function(){
+		$( "#show_regex_container" ).toggle();
+	})
 
 	// autocomplete functionality
 	$("#autocomplete").click(function(){
@@ -211,14 +215,14 @@
 			}
 		})
 		.autocomplete({
-			minLength: 3,
+			minLength: 2,
 			disabled: true,
 			source: function( request, response ) {
 				$.each($( "#custom_patterns" ).val().split('\n'), function(){
 					var line_splitted = this.replace(/^\s*/, "").split(/\s+/)
 					var name = line_splitted[0]
 					if ( $.inArray(name, availableTags) == -1 ) {
-						availableTags.push("%{" + name)
+						availableTags.push("%{" + name + "}")
 					}
 				});
 

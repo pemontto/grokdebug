@@ -7,10 +7,10 @@
 					.ui-widget
 						%textarea{ :type => "text", :class => "span12", :placeholder => "Pattern", :id => "tags", :rows => "5" }
 					%label{ :for => "add_custom_patterns", :class => "checkbox inline",}
-						%input{ :id => "add_custom_patterns", :type => "checkbox", :value= => "" }
+						%input{ :id => "add_custom_patterns", :type => "checkbox", :value => "" }
 							Add custom patterns
 					%label{ :for => "keep_empty_captures", :class => "checkbox inline",}
-						%input{ :id => "keep_empty_captures", :type => "checkbox", :value= => "" }
+						%input{ :id => "keep_empty_captures", :type => "checkbox", :value => "" }
 							Keep Empty Captures
 					%label{ :for => "named_captures_only", :class => "checkbox inline" }
 						%input{ :id => "named_captures_only", :type => "checkbox", :value => "" }
@@ -18,6 +18,9 @@
 					%label{ :for => "singles", :class => "checkbox inline" }
 						%input{ :id => "singles", :type => "checkbox", :value => "" }
 							Singles
+					%label{ :for => "show_regex", :class => "checkbox inline" }
+						%input{ :id => "show_regex", :type => "checkbox", :value => "" }
+							Show Regex
 					%span{ :class => "pull-right" }
 						%label{ :for => "autocomplete", :class => "checkbox inline" }
 							%input{ :id => "autocomplete", :type => "checkbox", :value => "" }
@@ -28,6 +31,10 @@
 					%p
 						One per line, the syntax for a grok pattern is <code>%{SYNTAX:SEMANTIC}</code>
 					%textarea{ :class => "span12", :placeholder => "Custom patterns", :id => "custom_patterns", :rows => "5" }
+				%div{:id => "show_regex_container", :style=>"display:none;"}
+					%p
+						Resulting regex of the expanded grok pattern:
+					%textarea{ :class => "span12", :placeholder => "Regex", :id => "regex", :rows => "5" }
 				%div{ :class => "well" }
 					%pre{ :id => "grok" }
 			.push
@@ -47,6 +54,7 @@
 		$('#named_captures_only').prop('checked', parseInt(localStorage.getItem('named_captures_only')));
 		$('#keep_empty_captures').prop('checked', parseInt(localStorage.getItem('keep_empty_captures')));
 		$('#singles').prop('checked', parseInt(localStorage.getItem('singles')));
+		$('#show_regex').prop('checked', parseInt(localStorage.getItem('show_regex')));
 		$('#autocomplete').prop('checked', parseInt(localStorage.getItem('autocomplete')));
 
 		// show custom pattern window and fill valueif needed
@@ -54,9 +62,13 @@
 			$('#custom_patterns').val(localStorage.getItem('custom_patterns'));
 			$('#custom_patterns_container').show();
 		}
+		// show regex pattern
+		if ($('#show_regex').is(':checked')) {
+			$('#show_regex_container').show();
+		}
 	};
 	// function to save settings to localstorage
-	var saveLocalstorage = function(custom_patterns, input, pattern, add_custom_patterns, named_captures_only, keep_empty_captures, singles, autocomplete) {
+	var saveLocalstorage = function(custom_patterns, input, pattern, add_custom_patterns, named_captures_only, keep_empty_captures, singles, show_regex, autocomplete) {
 		localStorage.setItem('custom_patterns', custom_patterns);
 		localStorage.setItem('input', input);
 		localStorage.setItem('pattern', pattern);
@@ -64,6 +76,7 @@
 		localStorage.setItem('named_captures_only', (named_captures_only == true ? 1 : 0));
 		localStorage.setItem('keep_empty_captures', (keep_empty_captures == true ? 1 : 0));
 		localStorage.setItem('singles', (singles == true ? 1 : 0));
+		localStorage.setItem('show_regex', (show_regex == true ? 1 : 0));
 		localStorage.setItem('autocomplete', (autocomplete == true ? 1 : 0));
 	};
 
@@ -71,36 +84,60 @@
 	var match = function() {
 		var custom_patterns = $('#custom_patterns').val();
 		var input = $('#input').val();
+		var lines = input.split('\n');
 		var pattern = $('#tags').val();
 		var add_custom_patterns = $('#add_custom_patterns').is(':checked');
 		var named_captures_only = $('#named_captures_only').is(':checked');
 		var keep_empty_captures = $('#keep_empty_captures').is(':checked');
 		var singles = $('#singles').is(':checked');
+		var show_regex = $('#show_regex').is(':checked');
 		var autocomplete = $('#autocomplete').is(':checked');
+		var output = [];
+
+		if (show_regex){
+			$.post('/regex',
+				{
+					"custom_patterns":custom_patterns,
+					"pattern":pattern
+				}, function(data){
+					$('#regex').html(data);
+				}
+			);
+		} else {
+			$('#regex').html()
+		}
 
 		// Save the user's settings to localstorage for next time
-		saveLocalstorage(custom_patterns, input, pattern, add_custom_patterns, named_captures_only, keep_empty_captures, singles, autocomplete);
+		saveLocalstorage(custom_patterns, input, pattern, add_custom_patterns, named_captures_only, keep_empty_captures, singles, show_regex, autocomplete);
 
 		// Display a loading indicator
 		$('#grok').parent().prepend("<i id='grokSpinner' class='icon icon-refresh icon-spin pull-right'></i>");
-
 		// Get the results from Grok
-		$.post('/grok',
-			{
-				"custom_patterns":custom_patterns,
-				"input":input,
-				"pattern":pattern,
-				"named_captures_only":named_captures_only,
-				"keep_empty_captures":keep_empty_captures,
-				"singles":singles
-			}, function(data){
-				// Display the results to the user
-				$('#grok').html(data);
-
-				// Remove the loading indicator after a short time
-				setTimeout(function(){$('#grokSpinner').remove();}, 500);
+		$.each(lines, function(i, line) {
+			if (line == '' ) {
+				return;
 			}
-		);
+			$.post('/grok',
+				{
+					"custom_patterns":custom_patterns,
+					"input":line,
+					"pattern":pattern,
+					"named_captures_only":named_captures_only,
+					"keep_empty_captures":keep_empty_captures,
+					"singles":singles
+				}, function(data){
+					// Display the results to the user
+					try {
+						data = JSON.parse(data);
+					} catch (e) {
+					}
+					output.push({ [line]: data});
+					$('#grok').html(JSON.stringify(output, null, 2));
+					// Remove the loading indicator after a short time
+					setTimeout(function(){$('#grokSpinner').remove();}, 500);
+				}
+			);
+		});
 	};
 
 	// load settings from localstorage

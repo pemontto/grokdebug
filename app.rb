@@ -5,7 +5,7 @@ require 'find'
 require 'cgi'
 
 class Application < Sinatra::Base
-  
+
   def grok
     if @grok.nil?
       @grok = Grok.new
@@ -22,15 +22,15 @@ class Application < Sinatra::Base
     dir_array = Array.new
       Find.find(path) do |f|
         if !File.directory?(f)
-            #dir_array << f if !File.directory?.basename(f) # add only non-directories  
+            #dir_array << f if !File.directory?.basename(f) # add only non-directories
           dir_array << File.basename(f, ".*")
         end
       end
       return dir_array
-  end 
+  end
 
   helpers do
-    def js_array(name, array)   
+    def js_array(name, array)
 
     end
   end
@@ -38,7 +38,7 @@ class Application < Sinatra::Base
   def add_custom_patterns_from_string(text)
     text.each_line do |line|
       # Skip comments
-      next if line =~ /^\s*#/ 
+      next if line =~ /^\s*#/
       # File format is: NAME ' '+ PATTERN '\n'
       name, pattern = line.gsub(/^\s*/, "").split(/\s+/, 2)
       #p name => pattern
@@ -51,28 +51,32 @@ class Application < Sinatra::Base
 
   set :public_folder, File.dirname(__FILE__) + '/public'
   post '/grok' do
-    custom_patterns = params[:custom_patterns]    
+    custom_patterns = params[:custom_patterns]
     input = params[:input]
     pattern = params[:pattern]
     named_captures_only = (params[:named_captures_only] == "true")
     singles = (params[:singles] == "true")
     keep_empty_captures = (params[:keep_empty_captures] == "true")
-    
+
+    puts "Pattern: "
     if !custom_patterns.empty?
       add_custom_patterns_from_string(custom_patterns)
-    end 
-    
+    end
+
     begin
       grok.compile(params[:pattern])
-    rescue 
+    rescue
       return "Compile ERROR"
     end
 
     matches = grok.match(params[:input])
+    puts "Matches: #{matches.captures}" if !!matches
     return "No Matches" if !matches
 
     fields = {}
     matches.captures.each do |key, value|
+      puts "Key: #{key}"
+      puts "Value: #{value}"
       type_coerce = nil
       is_named = false
       if key.include?(":")
@@ -137,7 +141,7 @@ class Application < Sinatra::Base
   post '/discover' do
     grok.discover(params[:input])
   end
-  
+
   get '/' do
     @tags = []
     grok.patterns.each do |x,y|
@@ -145,7 +149,7 @@ class Application < Sinatra::Base
     end
     haml :'index'
   end
-  
+
   get '/discover' do
     haml :'discover'
   end
@@ -156,5 +160,14 @@ class Application < Sinatra::Base
   end
   get '/patterns/*' do
     send_file(params[:spat]) unless params[:spat].nil?
+  end
+  post '/regex' do
+    custom_patterns = params[:custom_patterns]
+    pattern = params[:pattern]
+    if !custom_patterns.empty?
+      add_custom_patterns_from_string(custom_patterns)
+    end
+    grok.compile(params[:pattern])
+    return grok.expanded_pattern.gsub(/\(\?<[^<:>]+>/, '(?:').gsub(/\(\?<\w+:(\w+)(?::\w+)?>/, '(?<\1>').gsub('/', '\\/')
   end
 end
